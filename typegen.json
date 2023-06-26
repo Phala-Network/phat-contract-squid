@@ -1,0 +1,7 @@
+{
+  "outDir": "src/types",
+  "specVersions": "https://phala.archive.subsquid.io/graphql",
+  "events": ["Balances.Transfer"],
+  "calls": [],
+  "storage": []
+}
