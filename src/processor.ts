@@ -8,24 +8,27 @@ import {
 } from '@subsquid/substrate-processor'
 
 export const processor = new SubstrateBatchProcessor()
+  .setBlockRange({from: 2855001})
   .setDataSource({
-    // Lookup archive by the network name in the Subsquid registry
-    //archive: lookupArchive("kusama", {release: "FireSquid"})
-
-    // Use archive created by archive/docker-compose.yml
     archive: lookupArchive('phala', {release: 'FireSquid'}),
   })
-  .addEvent('Balances.Transfer', {
-    data: {
-      event: {
-        args: true,
-        extrinsic: {
-          hash: true,
-          fee: true,
-        },
-      },
-    },
-  } as const)
+  .addEvent('PhalaPhatContracts.ClusterCreated')
+  .addEvent('PhalaPhatContracts.Instantiated')
+  .addEvent('PhalaPhatContracts.WorkerAddedToCluster')
+  .addEvent('PhalaPhatContracts.WorkerRemovedFromCluster')
+  .addEvent('PhalaPhatTokenomic.ContractDepositChanged')
+  .addEvent('PhalaPhatTokenomic.UserStakeChanged')
+
+  .addEvent('PhalaComputation.SessionBound')
+  .addEvent('PhalaComputation.SessionUnbound')
+  .addEvent('PhalaComputation.WorkerStarted')
+  .addEvent('PhalaComputation.WorkerStopped')
+  .addEvent('PhalaComputation.WorkerReclaimed')
+  .addEvent('PhalaComputation.WorkerEnterUnresponsive')
+  .addEvent('PhalaComputation.WorkerExitUnresponsive')
+  .addEvent('PhalaComputation.BenchmarkUpdated')
+
+  .addEvent('PhalaRegistry.WorkerAdded')
 
 export type Item = BatchProcessorItem<typeof processor>
 export type EventItem = BatchProcessorEventItem<typeof processor>

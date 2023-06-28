@@ -1,7 +1,25 @@
 {
   "outDir": "src/types",
   "specVersions": "https://phala.archive.subsquid.io/graphql",
-  "events": ["Balances.Transfer"],
+  "events": [
+    "PhalaPhatContracts.ClusterCreated",
+    "PhalaPhatContracts.Instantiated",
+    "PhalaPhatContracts.WorkerAddedToCluster",
+    "PhalaPhatContracts.WorkerRemovedFromCluster",
+    "PhalaPhatTokenomic.ContractDepositChanged",
+    "PhalaPhatTokenomic.UserStakeChanged",
+
+    "PhalaComputation.WorkerStarted",
+    "PhalaComputation.WorkerStopped",
+    "PhalaComputation.WorkerReclaimed",
+    "PhalaComputation.SessionBound",
+    "PhalaComputation.SessionUnbound",
+    "PhalaComputation.WorkerEnterUnresponsive",
+    "PhalaComputation.WorkerExitUnresponsive",
+    "PhalaComputation.BenchmarkUpdated",
+
+    "PhalaRegistry.WorkerAdded"
+  ],
   "calls": [],
   "storage": []
 }

@@ -1,17 +1,50 @@
+type Meta @entity {
+  id: ID!
+  cluster: Int!
+  vCpu: Int!
+  worker: Int!
+  stake: BigDecimal!
+  staker: Int!
+}
+
 type Account @entity {
   "Account address"
   id: ID!
-  transfersTo: [Transfer!] @derivedFrom(field: "to")
-  transfersFrom: [Transfer!] @derivedFrom(field: "from")
 }
 
-type Transfer @entity {
+type Cluster @entity {
   id: ID!
-  blockNumber: Int! @index
-  timestamp: DateTime! @index
-  extrinsicHash: String @index
-  from: Account!
-  to: Account!
-  amount: BigInt! @index
-  fee: BigInt! # fee is calculated at the best effort and may be zero for some old extrinsics
+  vCpu: Int!
+  worker: Int!
+  stake: BigDecimal!
+  staker: Int!
+}
+
+enum WorkerState {
+  Ready
+  WorkerIdle
+  WorkerUnresponsive
+  WorkerCoolingDown
+}
+
+type Worker @entity {
+  id: ID!
+  cluster: Cluster
+  session: String
+  state: WorkerState!
+  pInit: Int!
+  pInstant: Int!
+}
+
+type Contract @entity {
+  id: ID!
+  cluster: Cluster!
+  stake: BigDecimal!
+}
+
+type ContractStake @entity {
+  id: ID!
+  contract: Contract!
+  account: Account!
+  amount: BigDecimal!
 }
