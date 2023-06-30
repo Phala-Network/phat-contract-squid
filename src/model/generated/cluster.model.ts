@@ -12,10 +12,13 @@ export class Cluster {
     id!: string
 
     @Column_("int4", {nullable: false})
-    vCpu!: number
+    pInstant!: number
 
     @Column_("int4", {nullable: false})
     worker!: number
+
+    @Column_("int4", {nullable: false})
+    idleWorker!: number
 
     @Column_("numeric", {transformer: marshal.bigdecimalTransformer, nullable: false})
     stake!: BigDecimal

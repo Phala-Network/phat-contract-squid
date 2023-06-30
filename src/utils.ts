@@ -14,6 +14,9 @@ export const assertGet = <T, U>(map: Map<U, T>, key: U): T => {
   return value
 }
 
+export const join = (...args: Array<string | number | bigint>): string =>
+  args.map((x) => x.toString()).join('-')
+
 export const toBigDecimal = (value: string | number | bigint): BigDecimal => {
   if (isHex(value)) {
     value = BigInt(value)
@@ -29,3 +32,16 @@ export const encodeAddress = (bytes: Uint8Array): string =>
 
 export const decodeAddress = (address: string): Uint8Array =>
   ss58.codec('phala').decode(address)
+
+export function sum(...args: BigDecimal[]): BigDecimal
+export function sum(...args: number[]): number
+export function sum(...args: BigDecimal[] | number[]): BigDecimal | number {
+  function isNumbers(array: number[] | BigDecimal[]): array is number[] {
+    return typeof array[0] === 'number'
+  }
+  if (isNumbers(args)) {
+    return args.reduce((a, b) => a + b, 0)
+  } else {
+    return args.reduce((a, b) => a.plus(b), BigDecimal(0))
+  }
+}

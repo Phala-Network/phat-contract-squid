@@ -16,7 +16,7 @@ export const processor = new SubstrateBatchProcessor()
   .addEvent('PhalaPhatContracts.Instantiated')
   .addEvent('PhalaPhatContracts.WorkerAddedToCluster')
   .addEvent('PhalaPhatContracts.WorkerRemovedFromCluster')
-  .addEvent('PhalaPhatTokenomic.ContractDepositChanged')
+  // .addEvent('PhalaPhatTokenomic.ContractDepositChanged')
   .addEvent('PhalaPhatTokenomic.UserStakeChanged')
 
   .addEvent('PhalaComputation.SessionBound')

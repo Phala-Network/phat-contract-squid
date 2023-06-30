@@ -1,8 +1,9 @@
 type Meta @entity {
   id: ID!
   cluster: Int!
-  vCpu: Int!
+  pInstant: Int!
   worker: Int!
+  idleWorker: Int!
   stake: BigDecimal!
   staker: Int!
 }
@@ -14,8 +15,10 @@ type Account @entity {
 
 type Cluster @entity {
   id: ID!
-  vCpu: Int!
+  # owner: Account!
+  pInstant: Int!
   worker: Int!
+  idleWorker: Int!
   stake: BigDecimal!
   staker: Int!
 }
@@ -38,6 +41,7 @@ type Worker @entity {
 
 type Contract @entity {
   id: ID!
+  deployer: Account!
   cluster: Cluster!
   stake: BigDecimal!
 }

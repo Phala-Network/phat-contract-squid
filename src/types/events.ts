@@ -376,29 +376,6 @@ export class PhalaPhatContractsWorkerRemovedFromClusterEvent {
     }
 }
 
-export class PhalaPhatTokenomicContractDepositChangedEvent {
-    private readonly _chain: Chain
-    private readonly event: Event
-
-    constructor(ctx: EventContext)
-    constructor(ctx: ChainContext, event: Event)
-    constructor(ctx: EventContext, event?: Event) {
-        event = event || ctx.event
-        assert(event.name === 'PhalaPhatTokenomic.ContractDepositChanged')
-        this._chain = ctx._chain
-        this.event = event
-    }
-
-    get isV1240(): boolean {
-        return this._chain.getEventHash('PhalaPhatTokenomic.ContractDepositChanged') === '72142554f691d1f9a9f08cb9d7c3ebf315d63b15c91385f0cf978eb41dd3fd2c'
-    }
-
-    get asV1240(): {cluster: (Uint8Array | undefined), contract: Uint8Array, deposit: bigint} {
-        assert(this.isV1240)
-        return this._chain.decodeEvent(this.event)
-    }
-}
-
 export class PhalaPhatTokenomicUserStakeChangedEvent {
     private readonly _chain: Chain
     private readonly event: Event

@@ -1,6 +1,7 @@
 import {BigDecimal} from "@subsquid/big-decimal"
 import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, ManyToOne as ManyToOne_, Index as Index_} from "typeorm"
 import * as marshal from "./marshal"
+import {Account} from "./account.model"
 import {Cluster} from "./cluster.model"
 
 @Entity_()
@@ -11,6 +12,10 @@ export class Contract {
 
     @PrimaryColumn_()
     id!: string
+
+    @Index_()
+    @ManyToOne_(() => Account, {nullable: true})
+    deployer!: Account
 
     @Index_()
     @ManyToOne_(() => Cluster, {nullable: true})

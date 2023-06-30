@@ -6,7 +6,6 @@
     "PhalaPhatContracts.Instantiated",
     "PhalaPhatContracts.WorkerAddedToCluster",
     "PhalaPhatContracts.WorkerRemovedFromCluster",
-    "PhalaPhatTokenomic.ContractDepositChanged",
     "PhalaPhatTokenomic.UserStakeChanged",
 
     "PhalaComputation.WorkerStarted",
