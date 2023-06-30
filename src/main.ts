@@ -9,6 +9,7 @@ import {
   Worker,
   WorkerState,
 } from './model'
+import fetch from 'node-fetch'
 import {EventItem, ProcessorContext, processor} from './processor'
 import {
   PhalaComputationBenchmarkUpdatedEvent,
@@ -44,7 +45,7 @@ interface Dump {
 
 const importDump = async (ctx: ProcessorContext<Store>) => {
   const dump = await fetch(
-    'https://raw.githubusercontent.com/Phala-Network/phat-contract-squid/main/dump_2855000.json'
+    'https://raw.githubusercontent.com/Phala-Network/phat-contract-squid/main/dump_2512648.json'
   ).then(async (res) => (await res.json()) as Dump)
   const workers: Worker[] = []
   const clusters: Cluster[] = []
@@ -63,7 +64,7 @@ const importDump = async (ctx: ProcessorContext<Store>) => {
       new Worker({
         id: worker.id,
         session: worker.session,
-        state: worker.state,
+        state: worker.state ?? WorkerState.Ready,
         pInit: worker.pInit ?? 0,
         pInstant: worker.pInstant ?? 0,
       })
@@ -89,7 +90,9 @@ const importDump = async (ctx: ProcessorContext<Store>) => {
       meta.worker++
       if (worker.state === WorkerState.WorkerIdle) {
         c.idleWorker++
+        c.pInstant += worker.pInstant
         meta.idleWorker++
+        meta.pInstant += worker.pInstant
       }
     }
   }
@@ -135,7 +138,7 @@ processor.run(new TypeormDatabase(), async (ctx) => {
   }
 
   const workers = await ctx.store.find(Worker, {
-    where: [{id: In([...workerIdSet])}, {session: In([...workerIdSet])}],
+    where: [{id: In([...workerIdSet])}, {session: In([...sessionIdSet])}],
     relations: {cluster: true},
   })
   const workerMap = toMap(workers)
@@ -145,12 +148,14 @@ processor.run(new TypeormDatabase(), async (ctx) => {
   )
   const contracts = await ctx.store.find(Contract, {
     where: {id: In([...contractIdSet])},
+    relations: {cluster: true, deployer: true},
   })
   const contractMap = toMap(contracts)
   const clusters = await ctx.store.find(Cluster)
   const clusterMap = toMap(clusters)
   const contractStakes = await ctx.store.find(ContractStake, {
     where: {id: In([...contractStakeIdSet])},
+    relations: {account: true, contract: true},
   })
   const contractStakeMap = toMap(contractStakes)
   const accounts = await ctx.store.find(Account, {
@@ -179,10 +184,11 @@ processor.run(new TypeormDatabase(), async (ctx) => {
         const {clusterId, contractId, accountId} = args
         const cluster = assertGet(clusterMap, clusterId)
         const contract = new Contract({
-          id: clusterId,
+          id: contractId,
           deployer: getAccount(accountMap, accountId),
           cluster,
           stake: BigDecimal(0),
+          staker: 0,
         })
         contractMap.set(contractId, contract)
         break
@@ -215,6 +221,7 @@ processor.run(new TypeormDatabase(), async (ctx) => {
       }
       case 'PhalaPhatTokenomic.UserStakeChanged': {
         const {clusterId, accountId, contractId, stake} = args
+        console.log(contractId)
         const cluster = assertGet(clusterMap, clusterId)
         const contract = assertGet(contractMap, contractId)
         const account = getAccount(accountMap, accountId)
@@ -227,11 +234,17 @@ processor.run(new TypeormDatabase(), async (ctx) => {
             contract,
             account,
           })
-        contract.stake = contract.stake.minus(contractStake.amount).plus(stake)
-        cluster.stake = cluster.stake.minus(contractStake.amount).plus(stake)
-        meta.stake = meta.stake.minus(contractStake.amount).plus(stake)
+        const prevAmount = contractStake.amount
         contractStake.amount = stake
+        contract.stake = contract.stake.minus(prevAmount).plus(stake)
+        cluster.stake = cluster.stake.minus(prevAmount).plus(stake)
+        meta.stake = meta.stake.minus(prevAmount).plus(stake)
         contractStakeMap.set(contractStake.id, contractStake)
+        if (prevAmount.eq(BigDecimal(0)) && stake.gt(BigDecimal(0))) {
+          contract.staker++
+        } else if (prevAmount.gt(BigDecimal(0)) && stake.eq(BigDecimal(0))) {
+          contract.staker--
+        }
         break
       }
       case 'PhalaComputation.SessionBound': {
@@ -342,6 +355,32 @@ processor.run(new TypeormDatabase(), async (ctx) => {
   await ctx.store.save([...workerMap.values()])
   await ctx.store.save([...contractMap.values()])
   await ctx.store.save([...contractStakeMap.values()])
+
+  {
+    const contractStakes = await ctx.store.find(ContractStake, {
+      relations: {account: true, contract: {cluster: true}},
+    })
+    const stakerSet = new Set<string>()
+    const clusterStakerMap = new Map<string, Set<string>>()
+    for (const contractStake of contractStakes) {
+      if (contractStake.amount.gt(0)) {
+        const accountId = contractStake.account.id
+        stakerSet.add(accountId)
+        const cluster = assertGet(clusterMap, contractStake.contract.cluster.id)
+        const clusterStakerSet =
+          clusterStakerMap.get(cluster.id) ?? new Set<string>()
+        clusterStakerSet.add(accountId)
+        clusterStakerMap.set(cluster.id, clusterStakerSet)
+      }
+    }
+    meta.staker = stakerSet.size
+    for (const [clusterId, stakerSet] of clusterStakerMap) {
+      const cluster = assertGet(clusterMap, clusterId)
+      cluster.staker = stakerSet.size
+    }
+    await ctx.store.save(meta)
+    await ctx.store.save([...clusterMap.values()])
+  }
 })
 
 const decodeEvent = (ctx: ProcessorContext<Store>, item: EventItem) => {

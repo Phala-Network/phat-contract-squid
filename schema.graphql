@@ -44,6 +44,7 @@ type Contract @entity {
   deployer: Account!
   cluster: Cluster!
   stake: BigDecimal!
+  staker: Int!
 }
 
 type ContractStake @entity {

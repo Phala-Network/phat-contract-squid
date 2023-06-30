@@ -23,4 +23,7 @@ export class Contract {
 
     @Column_("numeric", {transformer: marshal.bigdecimalTransformer, nullable: false})
     stake!: BigDecimal
+
+    @Column_("int4", {nullable: false})
+    staker!: number
 }

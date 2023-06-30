@@ -8,7 +8,7 @@ import {
 } from '@subsquid/substrate-processor'
 
 export const processor = new SubstrateBatchProcessor()
-  .setBlockRange({from: 2855001})
+  .setBlockRange({from: 2512649})
   .setDataSource({
     archive: lookupArchive('phala', {release: 'FireSquid'}),
   })
