@@ -283,7 +283,6 @@ processor.run(new TypeormDatabase(), async (ctx) => {
           cluster.pInstant -= worker.pInstant
           meta.idleWorker--
           meta.pInstant -= worker.pInstant
-          worker.pInstant = 0
         }
         break
       }
@@ -324,11 +323,12 @@ processor.run(new TypeormDatabase(), async (ctx) => {
       case 'PhalaComputation.BenchmarkUpdated': {
         const {sessionId, pInstant} = args
         const worker = assertGet(workerSessionMap, sessionId)
+        const prevPInstant = worker.pInstant
         if (worker.cluster) {
           const cluster = assertGet(clusterMap, worker.cluster.id)
-          cluster.pInstant -= worker.pInstant
+          cluster.pInstant -= prevPInstant
           cluster.pInstant += pInstant
-          meta.pInstant -= worker.pInstant
+          meta.pInstant -= prevPInstant
           meta.pInstant += pInstant
         }
         worker.pInstant = pInstant
