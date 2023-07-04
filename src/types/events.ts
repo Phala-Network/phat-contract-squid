@@ -2,35 +2,6 @@ import assert from 'assert'
 import {Chain, ChainContext, EventContext, Event, Result, Option} from './support'
 import * as v1240 from './v1240'
 
-export class PhalaComputationBenchmarkUpdatedEvent {
-    private readonly _chain: Chain
-    private readonly event: Event
-
-    constructor(ctx: EventContext)
-    constructor(ctx: ChainContext, event: Event)
-    constructor(ctx: EventContext, event?: Event) {
-        event = event || ctx.event
-        assert(event.name === 'PhalaComputation.BenchmarkUpdated')
-        this._chain = ctx._chain
-        this.event = event
-    }
-
-    /**
-     * Benchmark Updated
-     */
-    get isV1240(): boolean {
-        return this._chain.getEventHash('PhalaComputation.BenchmarkUpdated') === 'bf11f26c57bc5a22fb034fbf2a7aeee05ab0bc45f2a8a333f9e31eae55391087'
-    }
-
-    /**
-     * Benchmark Updated
-     */
-    get asV1240(): {session: Uint8Array, pInstant: number} {
-        assert(this.isV1240)
-        return this._chain.decodeEvent(this.event)
-    }
-}
-
 export class PhalaComputationSessionBoundEvent {
     private readonly _chain: Chain
     private readonly event: Event

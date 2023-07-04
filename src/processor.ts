@@ -26,7 +26,6 @@ export const processor = new SubstrateBatchProcessor()
   .addEvent('PhalaComputation.WorkerReclaimed')
   .addEvent('PhalaComputation.WorkerEnterUnresponsive')
   .addEvent('PhalaComputation.WorkerExitUnresponsive')
-  .addEvent('PhalaComputation.BenchmarkUpdated')
 
   .addEvent('PhalaRegistry.WorkerAdded')
 

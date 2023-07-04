@@ -15,7 +15,7 @@ export class Meta {
     cluster!: number
 
     @Column_("int4", {nullable: false})
-    pInstant!: number
+    pInit!: number
 
     @Column_("int4", {nullable: false})
     worker!: number

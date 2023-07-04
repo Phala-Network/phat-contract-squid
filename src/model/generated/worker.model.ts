@@ -23,7 +23,4 @@ export class Worker {
 
     @Column_("int4", {nullable: false})
     pInit!: number
-
-    @Column_("int4", {nullable: false})
-    pInstant!: number
 }

@@ -15,7 +15,6 @@
     "PhalaComputation.SessionUnbound",
     "PhalaComputation.WorkerEnterUnresponsive",
     "PhalaComputation.WorkerExitUnresponsive",
-    "PhalaComputation.BenchmarkUpdated",
 
     "PhalaRegistry.WorkerAdded"
   ],

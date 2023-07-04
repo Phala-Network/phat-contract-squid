@@ -12,7 +12,6 @@ import {
 import fetch from 'node-fetch'
 import {EventItem, ProcessorContext, processor} from './processor'
 import {
-  PhalaComputationBenchmarkUpdatedEvent,
   PhalaComputationSessionBoundEvent,
   PhalaComputationSessionUnboundEvent,
   PhalaComputationWorkerEnterUnresponsiveEvent,
@@ -38,7 +37,6 @@ interface Dump {
     session?: string
     state?: WorkerState
     pInit?: number
-    pInstant?: number
   }[]
   clusters: {id: string; owner: string; workers: string[]}[]
 }
@@ -52,7 +50,7 @@ const importDump = async (ctx: ProcessorContext<Store>) => {
   const meta = new Meta({
     id: '0',
     cluster: 0,
-    pInstant: 0,
+    pInit: 0,
     worker: 0,
     idleWorker: 0,
     stake: BigDecimal(0),
@@ -66,7 +64,6 @@ const importDump = async (ctx: ProcessorContext<Store>) => {
         session: worker.session,
         state: worker.state ?? WorkerState.Ready,
         pInit: worker.pInit ?? 0,
-        pInstant: worker.pInstant ?? 0,
       })
     )
   }
@@ -76,7 +73,7 @@ const importDump = async (ctx: ProcessorContext<Store>) => {
   for (const cluster of dump.clusters) {
     const c = new Cluster({
       id: cluster.id,
-      pInstant: 0,
+      pInit: 0,
       idleWorker: 0,
       worker: cluster.workers.length,
       stake: BigDecimal(0),
@@ -90,9 +87,9 @@ const importDump = async (ctx: ProcessorContext<Store>) => {
       meta.worker++
       if (worker.state === WorkerState.WorkerIdle) {
         c.idleWorker++
-        c.pInstant += worker.pInstant
+        c.pInit += worker.pInit
         meta.idleWorker++
-        meta.pInstant += worker.pInstant
+        meta.pInit += worker.pInit
       }
     }
   }
@@ -171,7 +168,7 @@ processor.run(new TypeormDatabase(), async (ctx) => {
           clusterId,
           new Cluster({
             id: clusterId,
-            pInstant: 0,
+            pInit: 0,
             worker: 0,
             idleWorker: 0,
             stake: BigDecimal(0),
@@ -269,7 +266,9 @@ processor.run(new TypeormDatabase(), async (ctx) => {
         if (worker.cluster) {
           const cluster = assertGet(clusterMap, worker.cluster.id)
           cluster.idleWorker++
+          cluster.pInit += initP
           meta.idleWorker++
+          meta.pInit += initP
         }
         break
       }
@@ -280,9 +279,9 @@ processor.run(new TypeormDatabase(), async (ctx) => {
         if (worker.cluster) {
           const cluster = assertGet(clusterMap, worker.cluster.id)
           cluster.idleWorker--
-          cluster.pInstant -= worker.pInstant
+          cluster.pInit -= worker.pInit
           meta.idleWorker--
-          meta.pInstant -= worker.pInstant
+          meta.pInit -= worker.pInit
         }
         break
       }
@@ -300,9 +299,9 @@ processor.run(new TypeormDatabase(), async (ctx) => {
           if (worker.cluster) {
             const cluster = assertGet(clusterMap, worker.cluster.id)
             cluster.idleWorker--
-            cluster.pInstant -= worker.pInstant
+            cluster.pInit -= worker.pInit
             meta.idleWorker--
-            meta.pInstant -= worker.pInstant
+            meta.pInit -= worker.pInit
           }
         }
         break
@@ -314,24 +313,10 @@ processor.run(new TypeormDatabase(), async (ctx) => {
         if (worker.cluster) {
           const cluster = assertGet(clusterMap, worker.cluster.id)
           cluster.idleWorker++
-          cluster.pInstant += worker.pInstant
+          cluster.pInit += worker.pInit
           meta.idleWorker++
-          meta.pInstant += worker.pInstant
+          meta.pInit += worker.pInit
         }
-        break
-      }
-      case 'PhalaComputation.BenchmarkUpdated': {
-        const {sessionId, pInstant} = args
-        const worker = assertGet(workerSessionMap, sessionId)
-        const prevPInstant = worker.pInstant
-        if (worker.cluster) {
-          const cluster = assertGet(clusterMap, worker.cluster.id)
-          cluster.pInstant -= prevPInstant
-          cluster.pInstant += pInstant
-          meta.pInstant -= prevPInstant
-          meta.pInstant += pInstant
-        }
-        worker.pInstant = pInstant
         break
       }
       case 'PhalaRegistry.WorkerAdded': {
@@ -342,7 +327,6 @@ processor.run(new TypeormDatabase(), async (ctx) => {
             id: workerId,
             state: WorkerState.Ready,
             pInit: 0,
-            pInstant: 0,
           })
         )
         break
@@ -429,11 +413,6 @@ const decodeEvent = (ctx: ProcessorContext<Store>, item: EventItem) => {
       const e = new PhalaComputationWorkerExitUnresponsiveEvent(ctx, item.event)
       const {session} = e.asV1240
       return {name, args: {sessionId: encodeAddress(session)}}
-    }
-    case 'PhalaComputation.BenchmarkUpdated': {
-      const e = new PhalaComputationBenchmarkUpdatedEvent(ctx, item.event)
-      const {session, pInstant} = e.asV1240
-      return {name, args: {sessionId: encodeAddress(session), pInstant}}
     }
     case 'PhalaRegistry.WorkerAdded': {
       const e = new PhalaRegistryWorkerAddedEvent(ctx, item.event)

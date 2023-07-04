@@ -12,7 +12,7 @@ export class Cluster {
     id!: string
 
     @Column_("int4", {nullable: false})
-    pInstant!: number
+    pInit!: number
 
     @Column_("int4", {nullable: false})
     worker!: number

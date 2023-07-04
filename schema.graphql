@@ -1,7 +1,7 @@
 type Meta @entity {
   id: ID!
   cluster: Int!
-  pInstant: Int!
+  pInit: Int!
   worker: Int!
   idleWorker: Int!
   stake: BigDecimal!
@@ -16,7 +16,7 @@ type Account @entity {
 type Cluster @entity {
   id: ID!
   # owner: Account!
-  pInstant: Int!
+  pInit: Int!
   worker: Int!
   idleWorker: Int!
   stake: BigDecimal!
@@ -36,7 +36,6 @@ type Worker @entity {
   session: String
   state: WorkerState!
   pInit: Int!
-  pInstant: Int!
 }
 
 type Contract @entity {
