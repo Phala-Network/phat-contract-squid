@@ -28,4 +28,7 @@ export class Meta {
 
     @Column_("int4", {nullable: false})
     staker!: number
+
+    @Column_("int4", {nullable: false})
+    contract!: number
 }

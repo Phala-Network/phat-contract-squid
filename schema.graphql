@@ -6,6 +6,7 @@ type Meta @entity {
   idleWorker: Int!
   stake: BigDecimal!
   staker: Int!
+  contract: Int!
 }
 
 type Account @entity {
@@ -21,6 +22,7 @@ type Cluster @entity {
   idleWorker: Int!
   stake: BigDecimal!
   staker: Int!
+  contract: Int!
 }
 
 enum WorkerState {

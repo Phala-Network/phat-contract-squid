@@ -55,6 +55,7 @@ const importDump = async (ctx: ProcessorContext<Store>) => {
     idleWorker: 0,
     stake: BigDecimal(0),
     staker: 0,
+    contract: 0,
   })
 
   for (const worker of dump.workers) {
@@ -78,6 +79,7 @@ const importDump = async (ctx: ProcessorContext<Store>) => {
       worker: cluster.workers.length,
       stake: BigDecimal(0),
       staker: 0,
+      contract: 0,
     })
     clusters.push(c)
 
@@ -180,6 +182,8 @@ processor.run(new TypeormDatabase(), async (ctx) => {
       case 'PhalaPhatContracts.Instantiated': {
         const {clusterId, contractId, accountId} = args
         const cluster = assertGet(clusterMap, clusterId)
+        cluster.contract++
+        meta.contract++
         const contract = new Contract({
           id: contractId,
           deployer: getAccount(accountMap, accountId),
