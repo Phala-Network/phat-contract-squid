@@ -366,9 +366,10 @@ processor.run(new TypeormDatabase(), async (ctx) => {
       const cluster = assertGet(clusterMap, clusterId)
       cluster.staker = stakerSet.size
     }
-    await ctx.store.save(meta)
-    await ctx.store.save([...clusterMap.values()])
   }
+
+  await ctx.store.save(meta)
+  await ctx.store.save([...clusterMap.values()])
 })
 
 const decodeEvent = (ctx: ProcessorContext<Store>, item: EventItem) => {
@@ -490,7 +491,7 @@ function getEvents(ctx: ProcessorContext<Store>) {
       if ('event' in item) {
         const decoded = decodeEvent(ctx, item)
         if (decoded != null) {
-          events.push(decoded)
+          events.push({...decoded, block: block.header})
         }
       }
     }

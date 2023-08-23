@@ -9,6 +9,7 @@ import {
 
 export const processor = new SubstrateBatchProcessor()
   .setBlockRange({from: 2512649})
+  .includeAllBlocks()
   .setDataSource({
     archive: lookupArchive('phala', {release: 'FireSquid'}),
   })
