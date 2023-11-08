@@ -1,36 +1,39 @@
 import {lookupArchive} from '@subsquid/archive-registry'
 import {
-  BatchContext,
-  BatchProcessorCallItem,
-  BatchProcessorEventItem,
-  BatchProcessorItem,
+  BlockHeader,
+  DataHandlerContext,
   SubstrateBatchProcessor,
+  SubstrateBatchProcessorFields,
 } from '@subsquid/substrate-processor'
+import {Store} from '@subsquid/typeorm-store'
 
 export const processor = new SubstrateBatchProcessor()
   .setBlockRange({from: 2512649})
   .includeAllBlocks()
   .setDataSource({
-    archive: lookupArchive('phala', {release: 'FireSquid'}),
+    archive: lookupArchive('phala', {release: 'ArrowSquid'}),
+    chain: {url: 'wss://phala-rpc.dwellir.com', rateLimit: 10},
   })
-  .addEvent('PhalaPhatContracts.ClusterCreated')
-  .addEvent('PhalaPhatContracts.Instantiated')
-  .addEvent('PhalaPhatContracts.WorkerAddedToCluster')
-  .addEvent('PhalaPhatContracts.WorkerRemovedFromCluster')
-  // .addEvent('PhalaPhatTokenomic.ContractDepositChanged')
-  .addEvent('PhalaPhatTokenomic.UserStakeChanged')
+  .addEvent({
+    name: [
+      'PhalaPhatContracts.ClusterCreated',
+      'PhalaPhatContracts.Instantiated',
+      'PhalaPhatContracts.WorkerAddedToCluster',
+      'PhalaPhatContracts.WorkerRemovedFromCluster',
+      'PhalaPhatTokenomic.UserStakeChanged',
 
-  .addEvent('PhalaComputation.SessionBound')
-  .addEvent('PhalaComputation.SessionUnbound')
-  .addEvent('PhalaComputation.WorkerStarted')
-  .addEvent('PhalaComputation.WorkerStopped')
-  .addEvent('PhalaComputation.WorkerReclaimed')
-  .addEvent('PhalaComputation.WorkerEnterUnresponsive')
-  .addEvent('PhalaComputation.WorkerExitUnresponsive')
+      'PhalaComputation.WorkerStarted',
+      'PhalaComputation.WorkerStopped',
+      'PhalaComputation.WorkerReclaimed',
+      'PhalaComputation.SessionBound',
+      'PhalaComputation.SessionUnbound',
+      'PhalaComputation.WorkerEnterUnresponsive',
+      'PhalaComputation.WorkerExitUnresponsive',
 
-  .addEvent('PhalaRegistry.WorkerAdded')
+      'PhalaRegistry.WorkerAdded',
+    ],
+  })
 
-export type Item = BatchProcessorItem<typeof processor>
-export type EventItem = BatchProcessorEventItem<typeof processor>
-export type CallItem = BatchProcessorCallItem<typeof processor>
-export type ProcessorContext<Store> = BatchContext<Store, Item>
+export type Fields = SubstrateBatchProcessorFields<typeof processor>
+export type Ctx = DataHandlerContext<Store, Fields>
+export type SubstrateBlock = BlockHeader<Fields>

@@ -27,10 +27,10 @@ export const toBigDecimal = (value: string | number | bigint): BigDecimal => {
 export const toBalance = (value: bigint): BigDecimal =>
   toBigDecimal(value).div(1e12)
 
-export const encodeAddress = (bytes: Uint8Array): string =>
+export const encodeAddress = (bytes: ss58.Bytes | Uint8Array): string =>
   ss58.codec('phala').encode(bytes)
 
-export const decodeAddress = (address: string): Uint8Array =>
+export const decodeAddress = (address: string): ss58.Bytes =>
   ss58.codec('phala').decode(address)
 
 export function sum(...args: BigDecimal[]): BigDecimal

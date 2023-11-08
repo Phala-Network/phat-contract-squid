@@ -1,5 +1,7 @@
+import {BigDecimal} from '@subsquid/big-decimal'
+import {TypeormDatabase} from '@subsquid/typeorm-store'
+import fetch from 'node-fetch'
 import {In} from 'typeorm'
-import {Store, TypeormDatabase} from '@subsquid/typeorm-store'
 import {
   Account,
   Cluster,
@@ -9,27 +11,14 @@ import {
   Worker,
   WorkerState,
 } from './model'
-import fetch from 'node-fetch'
-import {EventItem, ProcessorContext, processor} from './processor'
+import {Ctx, SubstrateBlock, processor} from './processor'
 import {
-  PhalaComputationSessionBoundEvent,
-  PhalaComputationSessionUnboundEvent,
-  PhalaComputationWorkerEnterUnresponsiveEvent,
-  PhalaComputationWorkerExitUnresponsiveEvent,
-  PhalaComputationWorkerReclaimedEvent,
-  PhalaComputationWorkerStartedEvent,
-  PhalaComputationWorkerStoppedEvent,
-  PhalaPhatContractsClusterCreatedEvent,
-  PhalaPhatContractsInstantiatedEvent,
-  PhalaPhatContractsWorkerAddedToClusterEvent,
-  PhalaPhatContractsWorkerRemovedFromClusterEvent,
-  // PhalaPhatTokenomicContractDepositChangedEvent,
-  PhalaPhatTokenomicUserStakeChangedEvent,
-  PhalaRegistryWorkerAddedEvent,
+  phalaComputation,
+  phalaPhatContracts,
+  phalaPhatTokenomic,
+  phalaRegistry,
 } from './types/events'
-import {toHex} from '@subsquid/substrate-processor'
 import {assertGet, encodeAddress, join, toBalance, toMap} from './utils'
-import {BigDecimal} from '@subsquid/big-decimal'
 
 interface Dump {
   workers: {
@@ -41,7 +30,7 @@ interface Dump {
   clusters: {id: string; owner: string; workers: string[]}[]
 }
 
-const importDump = async (ctx: ProcessorContext<Store>) => {
+const importDump = async (ctx: Ctx) => {
   const dump = await fetch(
     'https://raw.githubusercontent.com/Phala-Network/phat-contract-squid/main/dump_2512648.json'
   ).then(async (res) => (await res.json()) as Dump)
@@ -131,7 +120,7 @@ processor.run(new TypeormDatabase(), async (ctx) => {
     if (args.accountId) {
       accountIdSet.add(args.accountId)
     }
-    if (name === 'PhalaPhatTokenomic.UserStakeChanged') {
+    if (name === phalaPhatTokenomic.userStakeChanged.name) {
       contractStakeIdSet.add(join(args.contractId, args.accountId))
     }
   }
@@ -164,7 +153,7 @@ processor.run(new TypeormDatabase(), async (ctx) => {
 
   for (const {name, args} of events) {
     switch (name) {
-      case 'PhalaPhatContracts.ClusterCreated': {
+      case phalaPhatContracts.clusterCreated.name: {
         const {clusterId} = args
         clusterMap.set(
           clusterId,
@@ -179,7 +168,7 @@ processor.run(new TypeormDatabase(), async (ctx) => {
         )
         break
       }
-      case 'PhalaPhatContracts.Instantiated': {
+      case phalaPhatContracts.instantiated.name: {
         const {clusterId, contractId, accountId} = args
         const cluster = assertGet(clusterMap, clusterId)
         cluster.contract++
@@ -194,7 +183,7 @@ processor.run(new TypeormDatabase(), async (ctx) => {
         contractMap.set(contractId, contract)
         break
       }
-      case 'PhalaPhatContracts.WorkerAddedToCluster': {
+      case phalaPhatContracts.workerAddedToCluster.name: {
         const {clusterId, workerId} = args
         const cluster = assertGet(clusterMap, clusterId)
         const worker = assertGet(workerMap, workerId)
@@ -207,7 +196,7 @@ processor.run(new TypeormDatabase(), async (ctx) => {
         }
         break
       }
-      case 'PhalaPhatContracts.WorkerRemovedFromCluster': {
+      case phalaPhatContracts.workerRemovedFromCluster.name: {
         const {clusterId, workerId} = args
         const cluster = assertGet(clusterMap, clusterId)
         const worker = assertGet(workerMap, workerId)
@@ -220,9 +209,8 @@ processor.run(new TypeormDatabase(), async (ctx) => {
         }
         break
       }
-      case 'PhalaPhatTokenomic.UserStakeChanged': {
+      case phalaPhatTokenomic.userStakeChanged.name: {
         const {clusterId, accountId, contractId, stake} = args
-        console.log(contractId)
         const cluster = assertGet(clusterMap, clusterId)
         const contract = assertGet(contractMap, contractId)
         const account = getAccount(accountMap, accountId)
@@ -248,21 +236,21 @@ processor.run(new TypeormDatabase(), async (ctx) => {
         }
         break
       }
-      case 'PhalaComputation.SessionBound': {
+      case phalaComputation.sessionBound.name: {
         const {sessionId, workerId} = args
         const worker = assertGet(workerMap, workerId)
         worker.session = sessionId
         workerSessionMap.set(sessionId, worker as Worker & {session: string})
         break
       }
-      case 'PhalaComputation.SessionUnbound': {
+      case phalaComputation.sessionUnbound.name: {
         const {workerId, sessionId} = args
         const worker = assertGet(workerMap, workerId)
         worker.session = null
         workerSessionMap.delete(sessionId)
         break
       }
-      case 'PhalaComputation.WorkerStarted': {
+      case phalaComputation.workerStarted.name: {
         const {sessionId, initP} = args
         const worker = assertGet(workerSessionMap, sessionId)
         worker.pInit = initP
@@ -276,7 +264,7 @@ processor.run(new TypeormDatabase(), async (ctx) => {
         }
         break
       }
-      case 'PhalaComputation.WorkerStopped': {
+      case phalaComputation.workerStopped.name: {
         const {sessionId} = args
         const worker = assertGet(workerSessionMap, sessionId)
         worker.state = WorkerState.WorkerCoolingDown
@@ -289,13 +277,13 @@ processor.run(new TypeormDatabase(), async (ctx) => {
         }
         break
       }
-      case 'PhalaComputation.WorkerReclaimed': {
+      case phalaComputation.workerReclaimed.name: {
         const {sessionId} = args
         const worker = assertGet(workerSessionMap, sessionId)
         worker.state = WorkerState.Ready
         break
       }
-      case 'PhalaComputation.WorkerEnterUnresponsive': {
+      case phalaComputation.workerEnterUnresponsive.name: {
         const {sessionId} = args
         const worker = assertGet(workerSessionMap, sessionId)
         if (worker.state === WorkerState.WorkerIdle) {
@@ -310,7 +298,7 @@ processor.run(new TypeormDatabase(), async (ctx) => {
         }
         break
       }
-      case 'PhalaComputation.WorkerExitUnresponsive': {
+      case phalaComputation.workerExitUnresponsive.name: {
         const {sessionId} = args
         const worker = assertGet(workerSessionMap, sessionId)
         worker.state = WorkerState.WorkerIdle
@@ -323,7 +311,7 @@ processor.run(new TypeormDatabase(), async (ctx) => {
         }
         break
       }
-      case 'PhalaRegistry.WorkerAdded': {
+      case phalaRegistry.workerAdded.name: {
         const {workerId} = args
         workerMap.set(
           workerId,
@@ -372,111 +360,102 @@ processor.run(new TypeormDatabase(), async (ctx) => {
   await ctx.store.save([...clusterMap.values()])
 })
 
-const decodeEvent = (ctx: ProcessorContext<Store>, item: EventItem) => {
-  const {name, event} = item
+const decodeEvent = (event: Ctx['blocks'][number]['events'][number]) => {
+  const {name} = event
   switch (name) {
-    case 'PhalaComputation.SessionBound': {
-      const e = new PhalaComputationSessionBoundEvent(ctx, item.event)
-      const {session, worker} = e.asV1240
+    case phalaComputation.sessionBound.name: {
+      const {session, worker} =
+        phalaComputation.sessionBound.v1240.decode(event)
       return {
         name,
-        args: {sessionId: encodeAddress(session), workerId: toHex(worker)},
+        args: {sessionId: encodeAddress(session), workerId: worker},
       }
     }
-    case 'PhalaComputation.SessionUnbound': {
-      const e = new PhalaComputationSessionUnboundEvent(ctx, item.event)
-      const {session, worker} = e.asV1240
+    case phalaComputation.sessionUnbound.name: {
+      const {session, worker} =
+        phalaComputation.sessionUnbound.v1240.decode(event)
       return {
         name,
-        args: {sessionId: encodeAddress(session), workerId: toHex(worker)},
+        args: {sessionId: encodeAddress(session), workerId: worker},
       }
     }
-    case 'PhalaComputation.WorkerStarted': {
-      const e = new PhalaComputationWorkerStartedEvent(ctx, item.event)
-      const {session, initP} = e.asV1240
+    case phalaComputation.workerStarted.name: {
+      const {session, initP} =
+        phalaComputation.workerStarted.v1240.decode(event)
       return {name, args: {sessionId: encodeAddress(session), initP}}
     }
-    case 'PhalaComputation.WorkerStopped': {
-      const e = new PhalaComputationWorkerStoppedEvent(ctx, item.event)
-      const {session} = e.asV1240
+    case phalaComputation.workerStopped.name: {
+      const {session} = phalaComputation.workerStopped.v1240.decode(event)
       return {name, args: {sessionId: encodeAddress(session)}}
     }
-    case 'PhalaComputation.WorkerReclaimed': {
-      const e = new PhalaComputationWorkerReclaimedEvent(ctx, item.event)
-      const {session} = e.asV1240
+    case phalaComputation.workerReclaimed.name: {
+      const {session} = phalaComputation.workerReclaimed.v1240.decode(event)
       return {name, args: {sessionId: encodeAddress(session)}}
     }
-    case 'PhalaComputation.WorkerEnterUnresponsive': {
-      const e = new PhalaComputationWorkerEnterUnresponsiveEvent(
-        ctx,
-        item.event
-      )
-      const {session} = e.asV1240
+    case phalaComputation.workerEnterUnresponsive.name: {
+      const {session} =
+        phalaComputation.workerEnterUnresponsive.v1240.decode(event)
       return {name, args: {sessionId: encodeAddress(session)}}
     }
-    case 'PhalaComputation.WorkerExitUnresponsive': {
-      const e = new PhalaComputationWorkerExitUnresponsiveEvent(ctx, item.event)
-      const {session} = e.asV1240
+    case phalaComputation.workerExitUnresponsive.name: {
+      const {session} =
+        phalaComputation.workerExitUnresponsive.v1240.decode(event)
       return {name, args: {sessionId: encodeAddress(session)}}
     }
-    case 'PhalaRegistry.WorkerAdded': {
-      const e = new PhalaRegistryWorkerAddedEvent(ctx, item.event)
-      const {pubkey} = e.asV1240
-      return {name, args: {workerId: toHex(pubkey)}}
+    case phalaRegistry.workerAdded.name: {
+      const {pubkey} = phalaRegistry.workerAdded.v1240.decode(event)
+      return {name, args: {workerId: pubkey}}
     }
 
-    case 'PhalaPhatContracts.ClusterCreated': {
-      const {cluster} = new PhalaPhatContractsClusterCreatedEvent(ctx, event)
-        .asV1240
-      return {name, args: {clusterId: toHex(cluster)}}
+    case phalaPhatContracts.clusterCreated.name: {
+      const {cluster} = phalaPhatContracts.clusterCreated.v1240.decode(event)
+      return {name, args: {clusterId: cluster}}
     }
-    case 'PhalaPhatContracts.Instantiated': {
+    case phalaPhatContracts.instantiated.name: {
       const {contract, deployer, cluster} =
-        new PhalaPhatContractsInstantiatedEvent(ctx, event).asV1240
+        phalaPhatContracts.instantiated.v1240.decode(event)
       return {
         name,
         args: {
-          contractId: toHex(contract),
+          contractId: contract,
           accountId: encodeAddress(deployer),
-          clusterId: toHex(cluster),
+          clusterId: cluster,
         },
       }
     }
-    case 'PhalaPhatContracts.WorkerAddedToCluster': {
-      const {worker, cluster} = new PhalaPhatContractsWorkerAddedToClusterEvent(
-        ctx,
-        event
-      ).asV1240
-      return {
-        name,
-        args: {clusterId: toHex(cluster), workerId: toHex(worker)},
-      }
-    }
-    case 'PhalaPhatContracts.WorkerRemovedFromCluster': {
+    case phalaPhatContracts.workerAddedToCluster.name: {
       const {worker, cluster} =
-        new PhalaPhatContractsWorkerRemovedFromClusterEvent(ctx, event).asV1240
+        phalaPhatContracts.workerAddedToCluster.v1240.decode(event)
       return {
         name,
-        args: {clusterId: toHex(cluster), workerId: toHex(worker)},
+        args: {clusterId: cluster, workerId: worker},
       }
     }
-    // case 'PhalaPhatTokenomic.ContractDepositChanged': {
+    case phalaPhatContracts.workerRemovedFromCluster.name: {
+      const {worker, cluster} =
+        phalaPhatContracts.workerRemovedFromCluster.v1240.decode(event)
+      return {
+        name,
+        args: {clusterId: cluster, workerId: worker},
+      }
+    }
+    // case phalaPhatTokenomic. contractDepositChanged.name: {
     //   const {contract, deposit} =
     //     new PhalaPhatTokenomicContractDepositChangedEvent(ctx, event).asV1240
     //   return {
     //     name,
-    //     args: {contractId: toHex(contract), deposit: deposit.toString()},
+    //     args: {contractId: (contract), deposit: deposit.toString()},
     //   }
     // }
-    case 'PhalaPhatTokenomic.UserStakeChanged': {
+    case phalaPhatTokenomic.userStakeChanged.name: {
       const {cluster, account, contract, stake} =
-        new PhalaPhatTokenomicUserStakeChangedEvent(ctx, event).asV1240
+        phalaPhatTokenomic.userStakeChanged.v1240.decode(event)
       return {
         name,
         args: {
-          clusterId: cluster && toHex(cluster),
+          clusterId: cluster,
           accountId: encodeAddress(account),
-          contractId: toHex(contract),
+          contractId: contract,
           stake: toBalance(stake),
         },
       }
@@ -484,15 +463,17 @@ const decodeEvent = (ctx: ProcessorContext<Store>, item: EventItem) => {
   }
 }
 
-function getEvents(ctx: ProcessorContext<Store>) {
+function getEvents(ctx: Ctx): Array<
+  Exclude<ReturnType<typeof decodeEvent>, undefined> & {
+    block: SubstrateBlock
+  }
+> {
   const events = []
   for (const block of ctx.blocks) {
-    for (const item of block.items) {
-      if ('event' in item) {
-        const decoded = decodeEvent(ctx, item)
-        if (decoded != null) {
-          events.push({...decoded, block: block.header})
-        }
+    for (const event of block.events) {
+      const decoded = decodeEvent(event)
+      if (decoded != null) {
+        events.push({...decoded, block: block.header})
       }
     }
   }

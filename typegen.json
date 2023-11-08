@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/subsquid/squid-sdk/master/substrate/substrate-typegen/src/config.schema.json",
   "outDir": "src/types",
-  "specVersions": "https://phala.archive.subsquid.io/graphql",
+  "specVersions": "https://v2.archive.subsquid.io/metadata/phala",
   "events": [
     "PhalaPhatContracts.ClusterCreated",
     "PhalaPhatContracts.Instantiated",
