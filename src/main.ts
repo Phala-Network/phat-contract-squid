@@ -403,7 +403,12 @@ const decodeEvent = (event: Ctx['blocks'][number]['events'][number]) => {
       return {name, args: {sessionId: encodeAddress(session)}}
     }
     case phalaRegistry.workerAdded.name: {
-      const {pubkey} = phalaRegistry.workerAdded.v1240.decode(event)
+      let pubkey
+      try {
+        pubkey = phalaRegistry.workerAdded.v1240.decode(event).pubkey
+      } catch (e) {
+        pubkey = phalaRegistry.workerAdded.v1260.decode(event).pubkey
+      }
       return {name, args: {workerId: pubkey}}
     }
 
