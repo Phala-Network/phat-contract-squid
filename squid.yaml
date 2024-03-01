@@ -1,24 +1,21 @@
 manifestVersion: subsquid.io/v0.1
 name: phat-contract-squid
-version: 1
+version: 2
 description: 'The very first squid from manifest  '
-build: 
+build:
 deploy:
   addons:
-    postgres: 
+    postgres:
   processor:
     cmd:
-      - node
-      - lib/main
+      - sqd
+      - process:prod
   api:
     cmd:
-      - npx
-      - squid-graphql-server
-      - '--dumb-cache'
-      - in-memory
-      - '--dumb-cache-ttl'
-      - '1000'
-      - '--dumb-cache-size'
-      - '100'
-      - '--dumb-cache-max-age'
-      - '1000'
+      - sqd
+      - serve:prod
+
+scale:
+  addons:
+    postgres:
+      storage: 5G

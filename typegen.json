@@ -2,23 +2,32 @@
   "$schema": "https://raw.githubusercontent.com/subsquid/squid-sdk/master/substrate/substrate-typegen/src/config.schema.json",
   "outDir": "src/types",
   "specVersions": "https://v2.archive.subsquid.io/metadata/phala",
-  "events": [
-    "PhalaPhatContracts.ClusterCreated",
-    "PhalaPhatContracts.Instantiated",
-    "PhalaPhatContracts.WorkerAddedToCluster",
-    "PhalaPhatContracts.WorkerRemovedFromCluster",
-    "PhalaPhatTokenomic.UserStakeChanged",
-
-    "PhalaComputation.WorkerStarted",
-    "PhalaComputation.WorkerStopped",
-    "PhalaComputation.WorkerReclaimed",
-    "PhalaComputation.SessionBound",
-    "PhalaComputation.SessionUnbound",
-    "PhalaComputation.WorkerEnterUnresponsive",
-    "PhalaComputation.WorkerExitUnresponsive",
-
-    "PhalaRegistry.WorkerAdded"
-  ],
-  "calls": [],
-  "storage": []
+  "pallets": {
+    "PhalaPhatContracts": {
+      "events": [
+        "ClusterCreated",
+        "Instantiated",
+        "WorkerAddedToCluster",
+        "WorkerRemovedFromCluster",
+        "UserStakeChanged"
+      ]
+    },
+    "PhalaPhatTokenomic": {
+      "events": ["UserStakeChanged"]
+    },
+    "PhalaComputation": {
+      "events": [
+        "WorkerStarted",
+        "WorkerStopped",
+        "WorkerReclaimed",
+        "SessionBound",
+        "SessionUnbound",
+        "WorkerEnterUnresponsive",
+        "WorkerExitUnresponsive"
+      ]
+    },
+    "PhalaRegistry": {
+      "events": ["WorkerAdded"]
+    }
+  }
 }

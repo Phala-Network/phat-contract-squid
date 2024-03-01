@@ -1,11 +1,13 @@
-import * as ss58 from '@subsquid/ss58'
-import {BigDecimal} from '@subsquid/big-decimal'
-import {isHex} from '@subsquid/util-internal-hex'
 import assert from 'assert'
+import {BigDecimal} from '@subsquid/big-decimal'
+import * as ss58 from '@subsquid/ss58'
+import type {Entity} from '@subsquid/typeorm-store'
+import {isHex} from '@subsquid/util-internal-hex'
+import type {Ctx} from './processor'
 
 export const toMap = <T extends {id: string}>(
   a: T[],
-  fn: (a: T) => string = (a) => a.id
+  fn: (a: T) => string = (a) => a.id,
 ): Map<string, T> => new Map(a.map((a) => [fn(a), a]))
 
 export const assertGet = <T, U>(map: Map<U, T>, key: U): T => {
@@ -17,15 +19,18 @@ export const assertGet = <T, U>(map: Map<U, T>, key: U): T => {
 export const join = (...args: Array<string | number | bigint>): string =>
   args.map((x) => x.toString()).join('-')
 
-export const toBigDecimal = (value: string | number | bigint): BigDecimal => {
+export type JsonBigInt = string | number // Polkadot.js toJSON() BigInt type
+
+export const toBigDecimal = (value: JsonBigInt | bigint): BigDecimal => {
+  let convertedValue = value
   if (isHex(value)) {
-    value = BigInt(value)
+    convertedValue = BigInt(value)
   }
-  return BigDecimal(value)
+  return BigDecimal(convertedValue)
 }
 
 export const toBalance = (value: bigint): BigDecimal =>
-  toBigDecimal(value).div(1e12)
+  toBigDecimal(value).div(1e12).round(12)
 
 export const encodeAddress = (bytes: ss58.Bytes | Uint8Array): string =>
   ss58.codec('phala').encode(bytes)
@@ -33,15 +38,17 @@ export const encodeAddress = (bytes: ss58.Bytes | Uint8Array): string =>
 export const decodeAddress = (address: string): ss58.Bytes =>
   ss58.codec('phala').decode(address)
 
-export function sum(...args: BigDecimal[]): BigDecimal
-export function sum(...args: number[]): number
-export function sum(...args: BigDecimal[] | number[]): BigDecimal | number {
-  function isNumbers(array: number[] | BigDecimal[]): array is number[] {
-    return typeof array[0] === 'number'
-  }
-  if (isNumbers(args)) {
-    return args.reduce((a, b) => a + b, 0)
-  } else {
-    return args.reduce((a, b) => a.plus(b), BigDecimal(0))
+export const save = async (
+  ctx: Ctx,
+  entities: (Entity | Entity[] | Map<string, Entity>)[],
+): Promise<void> => {
+  for (const e of entities) {
+    if (e instanceof Map) {
+      await ctx.store.save(Array.from(e.values()))
+    } else if (Array.isArray(e)) {
+      await ctx.store.save(e)
+    } else {
+      await ctx.store.save(e)
+    }
   }
 }

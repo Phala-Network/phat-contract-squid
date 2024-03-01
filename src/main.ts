@@ -1,7 +1,8 @@
+import assert from 'assert'
 import {BigDecimal} from '@subsquid/big-decimal'
 import {TypeormDatabase} from '@subsquid/typeorm-store'
-import fetch from 'node-fetch'
 import {In} from 'typeorm'
+import {INITIAL_WORKERS} from './constants'
 import {
   Account,
   Cluster,
@@ -11,96 +12,29 @@ import {
   Worker,
   WorkerState,
 } from './model'
-import {Ctx, SubstrateBlock, processor} from './processor'
+import {type Ctx, type SubstrateBlock, processor} from './processor'
 import {
   phalaComputation,
   phalaPhatContracts,
   phalaPhatTokenomic,
   phalaRegistry,
 } from './types/events'
-import {assertGet, encodeAddress, join, toBalance, toMap} from './utils'
+import {assertGet, encodeAddress, join, save, toBalance, toMap} from './utils'
 
-interface Dump {
-  workers: {
-    id: string
-    session?: string
-    state?: WorkerState
-    pInit?: number
-  }[]
-  clusters: {id: string; owner: string; workers: string[]}[]
-}
-
-const importDump = async (ctx: Ctx) => {
-  const dump = await fetch(
-    'https://raw.githubusercontent.com/Phala-Network/phat-contract-squid/main/dump_2512648.json'
-  ).then(async (res) => (await res.json()) as Dump)
-  const workers: Worker[] = []
-  const clusters: Cluster[] = []
-  const meta = new Meta({
-    id: '0',
-    cluster: 0,
-    pInit: 0,
-    worker: 0,
-    idleWorker: 0,
-    stake: BigDecimal(0),
-    staker: 0,
-    contract: 0,
-  })
-
-  for (const worker of dump.workers) {
-    workers.push(
-      new Worker({
-        id: worker.id,
-        session: worker.session,
-        state: worker.state ?? WorkerState.Ready,
-        pInit: worker.pInit ?? 0,
-      })
-    )
-  }
-
-  const workerMap = toMap(workers)
-
-  for (const cluster of dump.clusters) {
-    const c = new Cluster({
-      id: cluster.id,
+processor.run(new TypeormDatabase(), async (ctx) => {
+  const meta =
+    (await ctx.store.findOneBy(Meta, {id: '0'})) ??
+    new Meta({
+      id: '0',
+      cluster: 0,
       pInit: 0,
+      worker: 0,
       idleWorker: 0,
-      worker: cluster.workers.length,
       stake: BigDecimal(0),
       staker: 0,
       contract: 0,
     })
-    clusters.push(c)
-
-    for (const workerId of cluster.workers) {
-      const worker = assertGet(workerMap, workerId)
-      worker.cluster = c
-      meta.worker++
-      if (worker.state === WorkerState.WorkerIdle) {
-        c.idleWorker++
-        c.pInit += worker.pInit
-        meta.idleWorker++
-        meta.pInit += worker.pInit
-      }
-    }
-  }
-
-  meta.cluster = clusters.length
-
-  await ctx.store.insert(meta)
-  await ctx.store.insert(clusters)
-  await ctx.store.insert(workers)
-}
-
-processor.run(new TypeormDatabase(), async (ctx) => {
-  if ((await ctx.store.get(Meta, '0')) == null) {
-    ctx.log.info('Importing dump...')
-    await importDump(ctx)
-    ctx.log.info('Dump imported')
-  }
-  const meta = await ctx.store.findOneByOrFail(Meta, {id: '0'})
   const events = getEvents(ctx)
-
   const workerIdSet = new Set<string>()
   const sessionIdSet = new Set<string>()
   const contractIdSet = new Set<string>()
@@ -123,6 +57,16 @@ processor.run(new TypeormDatabase(), async (ctx) => {
     if (name === phalaPhatTokenomic.userStakeChanged.name) {
       contractStakeIdSet.add(join(args.contractId, args.accountId))
     }
+    if (name === phalaPhatContracts.clusterCreated.name) {
+      const workerIds = INITIAL_WORKERS[args.clusterId]
+      assert(
+        workerIds != null,
+        `No initial workers for cluster ${args.clusterId}`,
+      )
+      for (const workerId of workerIds) {
+        workerIdSet.add(workerId)
+      }
+    }
   }
 
   const workers = await ctx.store.find(Worker, {
@@ -132,7 +76,7 @@ processor.run(new TypeormDatabase(), async (ctx) => {
   const workerMap = toMap(workers)
   const workerSessionMap = toMap(
     workers.filter((w): w is Worker & {session: string} => w.session != null),
-    (worker) => worker.session
+    (worker) => worker.session,
   )
   const contracts = await ctx.store.find(Contract, {
     where: {id: In([...contractIdSet])},
@@ -155,17 +99,31 @@ processor.run(new TypeormDatabase(), async (ctx) => {
     switch (name) {
       case phalaPhatContracts.clusterCreated.name: {
         const {clusterId} = args
-        clusterMap.set(
-          clusterId,
-          new Cluster({
-            id: clusterId,
-            pInit: 0,
-            worker: 0,
-            idleWorker: 0,
-            stake: BigDecimal(0),
-            staker: 0,
-          })
-        )
+        const cluster = new Cluster({
+          id: clusterId,
+          pInit: 0,
+          worker: 0,
+          idleWorker: 0,
+          stake: BigDecimal(0),
+          staker: 0,
+          contract: 0,
+        })
+        clusterMap.set(clusterId, cluster)
+        meta.cluster++
+        const workerIds = INITIAL_WORKERS[clusterId]
+        assert(workerIds)
+        for (const workerId of workerIds) {
+          const worker = assertGet(workerMap, workerId)
+          worker.cluster = cluster
+          cluster.worker++
+          meta.worker++
+          if (worker.state === WorkerState.WorkerIdle) {
+            cluster.idleWorker++
+            cluster.pInit += worker.pInit
+            meta.idleWorker++
+            meta.pInit += worker.pInit
+          }
+        }
         break
       }
       case phalaPhatContracts.instantiated.name: {
@@ -319,18 +277,20 @@ processor.run(new TypeormDatabase(), async (ctx) => {
             id: workerId,
             state: WorkerState.Ready,
             pInit: 0,
-          })
+          }),
         )
         break
       }
     }
   }
 
-  await ctx.store.save([...accountMap.values()])
-  await ctx.store.save([...clusterMap.values()])
-  await ctx.store.save([...workerMap.values()])
-  await ctx.store.save([...contractMap.values()])
-  await ctx.store.save([...contractStakeMap.values()])
+  await save(ctx, [
+    accountMap,
+    clusterMap,
+    workerMap,
+    contractMap,
+    contractStakeMap,
+  ])
 
   {
     const contractStakes = await ctx.store.find(ContractStake, {
@@ -356,95 +316,132 @@ processor.run(new TypeormDatabase(), async (ctx) => {
     }
   }
 
-  await ctx.store.save(meta)
-  await ctx.store.save([...clusterMap.values()])
+  await save(ctx, [meta, clusterMap])
 })
 
 const decodeEvent = (event: Ctx['blocks'][number]['events'][number]) => {
   const {name} = event
+  const error = new Error(
+    `Unsupported spec: ${event.name} v${event.block.specVersion}`,
+  )
   switch (name) {
     case phalaComputation.sessionBound.name: {
-      const {session, worker} =
-        phalaComputation.sessionBound.v1240.decode(event)
-      return {
-        name,
-        args: {sessionId: encodeAddress(session), workerId: worker},
+      if (phalaComputation.sessionBound.v1240.is(event)) {
+        const {session, worker} =
+          phalaComputation.sessionBound.v1240.decode(event)
+        return {
+          name,
+          args: {sessionId: encodeAddress(session), workerId: worker},
+        }
       }
+      throw error
     }
     case phalaComputation.sessionUnbound.name: {
-      const {session, worker} =
-        phalaComputation.sessionUnbound.v1240.decode(event)
-      return {
-        name,
-        args: {sessionId: encodeAddress(session), workerId: worker},
+      if (phalaComputation.sessionUnbound.v1240.is(event)) {
+        const {session, worker} =
+          phalaComputation.sessionUnbound.v1240.decode(event)
+        return {
+          name,
+          args: {sessionId: encodeAddress(session), workerId: worker},
+        }
       }
+      throw error
     }
     case phalaComputation.workerStarted.name: {
-      const {session, initP} =
-        phalaComputation.workerStarted.v1240.decode(event)
-      return {name, args: {sessionId: encodeAddress(session), initP}}
+      if (phalaComputation.workerStarted.v1240.is(event)) {
+        const {session, initP} =
+          phalaComputation.workerStarted.v1240.decode(event)
+        return {name, args: {sessionId: encodeAddress(session), initP}}
+      }
+      throw error
     }
     case phalaComputation.workerStopped.name: {
-      const {session} = phalaComputation.workerStopped.v1240.decode(event)
-      return {name, args: {sessionId: encodeAddress(session)}}
+      if (phalaComputation.workerStopped.v1240.is(event)) {
+        const {session} = phalaComputation.workerStopped.v1240.decode(event)
+        return {name, args: {sessionId: encodeAddress(session)}}
+      }
+      throw error
     }
     case phalaComputation.workerReclaimed.name: {
-      const {session} = phalaComputation.workerReclaimed.v1240.decode(event)
-      return {name, args: {sessionId: encodeAddress(session)}}
+      if (phalaComputation.workerReclaimed.v1240.is(event)) {
+        const {session} = phalaComputation.workerReclaimed.v1240.decode(event)
+        return {name, args: {sessionId: encodeAddress(session)}}
+      }
+      throw error
     }
     case phalaComputation.workerEnterUnresponsive.name: {
-      const {session} =
-        phalaComputation.workerEnterUnresponsive.v1240.decode(event)
-      return {name, args: {sessionId: encodeAddress(session)}}
+      if (phalaComputation.workerEnterUnresponsive.v1240.is(event)) {
+        const {session} =
+          phalaComputation.workerEnterUnresponsive.v1240.decode(event)
+        return {name, args: {sessionId: encodeAddress(session)}}
+      }
+      throw error
     }
     case phalaComputation.workerExitUnresponsive.name: {
-      const {session} =
-        phalaComputation.workerExitUnresponsive.v1240.decode(event)
-      return {name, args: {sessionId: encodeAddress(session)}}
+      if (phalaComputation.workerExitUnresponsive.v1240.is(event)) {
+        const {session} =
+          phalaComputation.workerExitUnresponsive.v1240.decode(event)
+        return {name, args: {sessionId: encodeAddress(session)}}
+      }
+      throw error
     }
     case phalaRegistry.workerAdded.name: {
-      let pubkey
-      try {
-        pubkey = phalaRegistry.workerAdded.v1240.decode(event).pubkey
-      } catch (e) {
-        pubkey = phalaRegistry.workerAdded.v1260.decode(event).pubkey
+      if (phalaRegistry.workerAdded.v1240.is(event)) {
+        const pubkey = phalaRegistry.workerAdded.v1240.decode(event).pubkey
+        return {name, args: {workerId: pubkey}}
       }
-      return {name, args: {workerId: pubkey}}
+      if (phalaRegistry.workerAdded.v1260.is(event)) {
+        const pubkey = phalaRegistry.workerAdded.v1260.decode(event).pubkey
+        return {name, args: {workerId: pubkey}}
+      }
+      throw error
     }
 
     case phalaPhatContracts.clusterCreated.name: {
-      const {cluster} = phalaPhatContracts.clusterCreated.v1240.decode(event)
-      return {name, args: {clusterId: cluster}}
+      if (phalaPhatContracts.clusterCreated.v1240.is(event)) {
+        const {cluster} = phalaPhatContracts.clusterCreated.v1240.decode(event)
+        return {name, args: {clusterId: cluster}}
+      }
+      throw error
     }
     case phalaPhatContracts.instantiated.name: {
-      const {contract, deployer, cluster} =
-        phalaPhatContracts.instantiated.v1240.decode(event)
-      return {
-        name,
-        args: {
-          contractId: contract,
-          accountId: encodeAddress(deployer),
-          clusterId: cluster,
-        },
+      if (phalaPhatContracts.instantiated.v1240.is(event)) {
+        const {contract, deployer, cluster} =
+          phalaPhatContracts.instantiated.v1240.decode(event)
+        return {
+          name,
+          args: {
+            contractId: contract,
+            accountId: encodeAddress(deployer),
+            clusterId: cluster,
+          },
+        }
       }
+      throw error
     }
     case phalaPhatContracts.workerAddedToCluster.name: {
-      const {worker, cluster} =
-        phalaPhatContracts.workerAddedToCluster.v1240.decode(event)
-      return {
-        name,
-        args: {clusterId: cluster, workerId: worker},
+      if (phalaPhatContracts.workerAddedToCluster.v1240.is(event)) {
+        const {worker, cluster} =
+          phalaPhatContracts.workerAddedToCluster.v1240.decode(event)
+        return {
+          name,
+          args: {clusterId: cluster, workerId: worker},
+        }
       }
+      throw error
     }
     case phalaPhatContracts.workerRemovedFromCluster.name: {
-      const {worker, cluster} =
-        phalaPhatContracts.workerRemovedFromCluster.v1240.decode(event)
-      return {
-        name,
-        args: {clusterId: cluster, workerId: worker},
+      if (phalaPhatContracts.workerRemovedFromCluster.v1240.is(event)) {
+        const {worker, cluster} =
+          phalaPhatContracts.workerRemovedFromCluster.v1240.decode(event)
+        return {
+          name,
+          args: {clusterId: cluster, workerId: worker},
+        }
       }
+      throw error
     }
-    // case phalaPhatTokenomic. contractDepositChanged.name: {
+    // case phalaPhatTokenomic.contractDepositChanged.name: {
     //   const {contract, deposit} =
     //     new PhalaPhatTokenomicContractDepositChangedEvent(ctx, event).asV1240
     //   return {
@@ -453,17 +450,20 @@ const decodeEvent = (event: Ctx['blocks'][number]['events'][number]) => {
     //   }
     // }
     case phalaPhatTokenomic.userStakeChanged.name: {
-      const {cluster, account, contract, stake} =
-        phalaPhatTokenomic.userStakeChanged.v1240.decode(event)
-      return {
-        name,
-        args: {
-          clusterId: cluster,
-          accountId: encodeAddress(account),
-          contractId: contract,
-          stake: toBalance(stake),
-        },
+      if (phalaPhatTokenomic.userStakeChanged.v1240.is(event)) {
+        const {cluster, account, contract, stake} =
+          phalaPhatTokenomic.userStakeChanged.v1240.decode(event)
+        return {
+          name,
+          args: {
+            clusterId: cluster,
+            accountId: encodeAddress(account),
+            contractId: contract,
+            stake: toBalance(stake),
+          },
+        }
       }
+      throw error
     }
   }
 }
