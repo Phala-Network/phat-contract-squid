@@ -1,6 +1,5 @@
 import {BigDecimal} from "@subsquid/big-decimal"
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, ManyToOne as ManyToOne_, Index as Index_} from "typeorm"
-import * as marshal from "./marshal"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, ManyToOne as ManyToOne_, Index as Index_, BigDecimalColumn as BigDecimalColumn_} from "@subsquid/typeorm-store"
 import {Contract} from "./contract.model"
 import {Account} from "./account.model"
 
@@ -21,6 +20,6 @@ export class ContractStake {
     @ManyToOne_(() => Account, {nullable: true})
     account!: Account
 
-    @Column_("numeric", {transformer: marshal.bigdecimalTransformer, nullable: false})
+    @BigDecimalColumn_({nullable: false})
     amount!: BigDecimal
 }

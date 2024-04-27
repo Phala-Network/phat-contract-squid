@@ -1,8 +1,13 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "files": {
-    "ignore": ["src/model/*", "src/types/*"],
+    "ignore": ["src/model/*", "src/types/*", "db"],
     "ignoreUnknown": true
+  },
+  "json": {
+    "parser": {
+      "allowComments": true
+    }
   },
   "formatter": {
     "indentStyle": "space"

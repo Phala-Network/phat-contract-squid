@@ -1,11 +1,10 @@
-import {lookupArchive} from '@subsquid/archive-registry'
 import {
   type BlockHeader,
   type DataHandlerContext,
   SubstrateBatchProcessor,
   type SubstrateBatchProcessorFields,
 } from '@subsquid/substrate-processor'
-import {Store} from '@subsquid/typeorm-store'
+import type {Store} from '@subsquid/typeorm-store'
 import {INITIAL_BLOCK, RPC_ENDPOINT, TO_BLOCK} from './constants'
 import {
   phalaComputation,
@@ -15,8 +14,7 @@ import {
 } from './types/events'
 
 export const processor = new SubstrateBatchProcessor()
-  .setBlockRange({from: 2512649})
-  .setGateway(lookupArchive('phala', {release: 'ArrowSquid'}))
+  .setGateway('https://v2.archive.subsquid.io/network/phala')
   .setRpcEndpoint(RPC_ENDPOINT)
   .setBlockRange({
     from: INITIAL_BLOCK + 1,
@@ -40,6 +38,10 @@ export const processor = new SubstrateBatchProcessor()
 
       phalaRegistry.workerAdded.name,
     ],
+  })
+  .setFields({
+    block: {timestamp: true},
+    event: {name: true, args: true},
   })
 
 export type Fields = SubstrateBatchProcessorFields<typeof processor>

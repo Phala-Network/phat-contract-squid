@@ -1,8 +1,9 @@
-module.exports = class Data1688547949263 {
-    name = 'Data1688547949263'
+module.exports = class Data1714241795319 {
+    name = 'Data1714241795319'
 
     async up(db) {
-        await db.query(`CREATE TABLE "meta" ("id" character varying NOT NULL, "cluster" integer NOT NULL, "p_init" integer NOT NULL, "worker" integer NOT NULL, "idle_worker" integer NOT NULL, "stake" numeric NOT NULL, "staker" integer NOT NULL, "contract" integer NOT NULL, CONSTRAINT "PK_c4c17a6c2bd7651338b60fc590b" PRIMARY KEY ("id"))`)
+        await db.query(`CREATE TABLE "meta" ("id" character varying NOT NULL, "cluster" integer NOT NULL, "p_init" integer NOT NULL, "worker" integer NOT NULL, "idle_worker" integer NOT NULL, "stake" numeric NOT NULL, "staker" integer NOT NULL, "contract" integer NOT NULL, "height" integer NOT NULL, "snapshot_updated_time" TIMESTAMP WITH TIME ZONE NOT NULL, CONSTRAINT "PK_c4c17a6c2bd7651338b60fc590b" PRIMARY KEY ("id"))`)
+        await db.query(`CREATE TABLE "meta_snapshot" ("id" character varying NOT NULL, "cluster" integer NOT NULL, "p_init" integer NOT NULL, "worker" integer NOT NULL, "idle_worker" integer NOT NULL, "stake" numeric NOT NULL, "staker" integer NOT NULL, "contract" integer NOT NULL, "updated_time" TIMESTAMP WITH TIME ZONE NOT NULL, "height" integer NOT NULL, CONSTRAINT "PK_24bcb53f370000bc98615bd85a3" PRIMARY KEY ("id"))`)
         await db.query(`CREATE TABLE "account" ("id" character varying NOT NULL, CONSTRAINT "PK_54115ee388cdb6d86bb4bf5b2ea" PRIMARY KEY ("id"))`)
         await db.query(`CREATE TABLE "cluster" ("id" character varying NOT NULL, "p_init" integer NOT NULL, "worker" integer NOT NULL, "idle_worker" integer NOT NULL, "stake" numeric NOT NULL, "staker" integer NOT NULL, "contract" integer NOT NULL, CONSTRAINT "PK_b09d39b9491ce5cb1e8407761fd" PRIMARY KEY ("id"))`)
         await db.query(`CREATE TABLE "worker" ("id" character varying NOT NULL, "session" text, "state" character varying(18) NOT NULL, "p_init" integer NOT NULL, "cluster_id" character varying, CONSTRAINT "PK_dc8175fa0e34ce7a39e4ec73b94" PRIMARY KEY ("id"))`)
@@ -22,6 +23,7 @@ module.exports = class Data1688547949263 {
 
     async down(db) {
         await db.query(`DROP TABLE "meta"`)
+        await db.query(`DROP TABLE "meta_snapshot"`)
         await db.query(`DROP TABLE "account"`)
         await db.query(`DROP TABLE "cluster"`)
         await db.query(`DROP TABLE "worker"`)

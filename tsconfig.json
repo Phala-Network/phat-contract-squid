@@ -22,7 +22,7 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     // "noPropertyAccessFromIndexSignature": true,
-   
+
     "outDir": "lib",
     "rootDir": "src",
     "declaration": false,

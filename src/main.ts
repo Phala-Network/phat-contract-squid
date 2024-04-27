@@ -1,8 +1,8 @@
-import assert from 'assert'
+import assert from 'node:assert'
 import {BigDecimal} from '@subsquid/big-decimal'
 import {TypeormDatabase} from '@subsquid/typeorm-store'
 import {In} from 'typeorm'
-import {INITIAL_WORKERS} from './constants'
+import {ENABLE_SNAPSHOT, INITIAL_BLOCK, INITIAL_WORKERS} from './constants'
 import {
   Account,
   Cluster,
@@ -13,6 +13,7 @@ import {
   WorkerState,
 } from './model'
 import {type Ctx, type SubstrateBlock, processor} from './processor'
+import {isSnapshotUpdateNeeded, takeSnapshot} from './snapshot'
 import {
   phalaComputation,
   phalaPhatContracts,
@@ -33,6 +34,8 @@ processor.run(new TypeormDatabase(), async (ctx) => {
       stake: BigDecimal(0),
       staker: 0,
       contract: 0,
+      height: INITIAL_BLOCK,
+      snapshotUpdatedTime: new Date('2023-05-10'),
     })
   const events = getEvents(ctx)
   const workerIdSet = new Set<string>()
@@ -95,7 +98,8 @@ processor.run(new TypeormDatabase(), async (ctx) => {
   })
   const accountMap = toMap(accounts)
 
-  for (const {name, args} of events) {
+  for (let i = 0; i < events.length; i++) {
+    const {name, args, block} = events[i]
     switch (name) {
       case phalaPhatContracts.clusterCreated.name: {
         const {clusterId} = args
@@ -282,41 +286,60 @@ processor.run(new TypeormDatabase(), async (ctx) => {
         break
       }
     }
-  }
 
-  await save(ctx, [
-    accountMap,
-    clusterMap,
-    workerMap,
-    contractMap,
-    contractStakeMap,
-  ])
+    const nextEvent = events[i + 1]
+    const isLastEventInHandler = nextEvent == null
+    const isLastEventInBlock =
+      isLastEventInHandler || block.height !== nextEvent.block.height
+    const shouldTakeSnapshot =
+      ENABLE_SNAPSHOT &&
+      isLastEventInBlock &&
+      isSnapshotUpdateNeeded(block, meta)
 
-  {
-    const contractStakes = await ctx.store.find(ContractStake, {
-      relations: {account: true, contract: {cluster: true}},
-    })
-    const stakerSet = new Set<string>()
-    const clusterStakerMap = new Map<string, Set<string>>()
-    for (const contractStake of contractStakes) {
-      if (contractStake.amount.gt(0)) {
-        const accountId = contractStake.account.id
-        stakerSet.add(accountId)
-        const cluster = assertGet(clusterMap, contractStake.contract.cluster.id)
-        const clusterStakerSet =
-          clusterStakerMap.get(cluster.id) ?? new Set<string>()
-        clusterStakerSet.add(accountId)
-        clusterStakerMap.set(cluster.id, clusterStakerSet)
+    if (shouldTakeSnapshot || isLastEventInHandler) {
+      await save(ctx, [
+        accountMap,
+        clusterMap,
+        workerMap,
+        contractMap,
+        contractStakeMap,
+      ])
+
+      {
+        const contractStakes = await ctx.store.find(ContractStake, {
+          relations: {account: true, contract: {cluster: true}},
+        })
+        const stakerSet = new Set<string>()
+        const clusterStakerMap = new Map<string, Set<string>>()
+        for (const contractStake of contractStakes) {
+          if (contractStake.amount.gt(0)) {
+            const accountId = contractStake.account.id
+            stakerSet.add(accountId)
+            const cluster = assertGet(
+              clusterMap,
+              contractStake.contract.cluster.id,
+            )
+            const clusterStakerSet =
+              clusterStakerMap.get(cluster.id) ?? new Set<string>()
+            clusterStakerSet.add(accountId)
+            clusterStakerMap.set(cluster.id, clusterStakerSet)
+          }
+        }
+        meta.staker = stakerSet.size
+        for (const [clusterId, stakerSet] of clusterStakerMap) {
+          const cluster = assertGet(clusterMap, clusterId)
+          cluster.staker = stakerSet.size
+        }
       }
+
+      meta.height = block.height
+      await save(ctx, [meta, clusterMap])
     }
-    meta.staker = stakerSet.size
-    for (const [clusterId, stakerSet] of clusterStakerMap) {
-      const cluster = assertGet(clusterMap, clusterId)
-      cluster.staker = stakerSet.size
+
+    if (shouldTakeSnapshot) {
+      await takeSnapshot(ctx, block, meta)
     }
   }
-
-  await save(ctx, [meta, clusterMap])
 })
 
 const decodeEvent = (event: Ctx['blocks'][number]['events'][number]) => {

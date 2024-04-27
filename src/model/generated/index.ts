@@ -1,4 +1,5 @@
 export * from "./meta.model"
+export * from "./metaSnapshot.model"
 export * from "./account.model"
 export * from "./cluster.model"
 export * from "./worker.model"

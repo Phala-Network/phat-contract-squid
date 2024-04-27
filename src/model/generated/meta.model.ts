@@ -1,6 +1,5 @@
 import {BigDecimal} from "@subsquid/big-decimal"
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_} from "typeorm"
-import * as marshal from "./marshal"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, IntColumn as IntColumn_, BigDecimalColumn as BigDecimalColumn_, DateTimeColumn as DateTimeColumn_} from "@subsquid/typeorm-store"
 
 @Entity_()
 export class Meta {
@@ -11,24 +10,30 @@ export class Meta {
     @PrimaryColumn_()
     id!: string
 
-    @Column_("int4", {nullable: false})
+    @IntColumn_({nullable: false})
     cluster!: number
 
-    @Column_("int4", {nullable: false})
+    @IntColumn_({nullable: false})
     pInit!: number
 
-    @Column_("int4", {nullable: false})
+    @IntColumn_({nullable: false})
     worker!: number
 
-    @Column_("int4", {nullable: false})
+    @IntColumn_({nullable: false})
     idleWorker!: number
 
-    @Column_("numeric", {transformer: marshal.bigdecimalTransformer, nullable: false})
+    @BigDecimalColumn_({nullable: false})
     stake!: BigDecimal
 
-    @Column_("int4", {nullable: false})
+    @IntColumn_({nullable: false})
     staker!: number
 
-    @Column_("int4", {nullable: false})
+    @IntColumn_({nullable: false})
     contract!: number
+
+    @IntColumn_({nullable: false})
+    height!: number
+
+    @DateTimeColumn_({nullable: false})
+    snapshotUpdatedTime!: Date
 }

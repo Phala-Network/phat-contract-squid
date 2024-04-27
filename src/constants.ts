@@ -1,10 +1,14 @@
 export const INITIAL_BLOCK = 1
 
 export const TO_BLOCK =
-  process.env.TO_BLOCK != null ? parseInt(process.env.TO_BLOCK) : undefined
+  process.env.TO_BLOCK != null
+    ? Number.parseInt(process.env.TO_BLOCK)
+    : undefined
 
 export const RPC_ENDPOINT =
   process.env.RPC_ENDPOINT || 'https://phala-rpc.dwellir.com'
+
+export const ENABLE_SNAPSHOT = process.env.ENABLE_SNAPSHOT === '1'
 
 export const INITIAL_WORKERS: Partial<{[x in string]: string[]}> = {
   '0x0000000000000000000000000000000000000000000000000000000000000001': [

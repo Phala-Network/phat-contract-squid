@@ -7,6 +7,22 @@ type Meta @entity {
   stake: BigDecimal!
   staker: Int!
   contract: Int!
+  height: Int!
+  snapshotUpdatedTime: DateTime!
+}
+
+type MetaSnapshot @entity {
+  id: ID!
+  cluster: Int!
+  pInit: Int!
+  worker: Int!
+  idleWorker: Int!
+  stake: BigDecimal!
+  staker: Int!
+  contract: Int!
+
+  updatedTime: DateTime!
+  height: Int!
 }
 
 type Account @entity {
