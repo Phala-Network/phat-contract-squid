@@ -39,6 +39,7 @@ type Cluster @entity {
   stake: BigDecimal!
   staker: Int!
   contract: Int!
+  createdTime: DateTime!
 }
 
 enum WorkerState {
@@ -62,6 +63,7 @@ type Contract @entity {
   cluster: Cluster!
   stake: BigDecimal!
   staker: Int!
+  instantiatedTime: DateTime!
 }
 
 type ContractStake @entity {

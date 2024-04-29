@@ -10,7 +10,8 @@
         "WorkerAddedToCluster",
         "WorkerRemovedFromCluster",
         "UserStakeChanged"
-      ]
+      ],
+      "storage": ["ClusterWorkers"]
     },
     "PhalaPhatTokenomic": {
       "events": ["UserStakeChanged"]

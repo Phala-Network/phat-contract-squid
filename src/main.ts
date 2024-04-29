@@ -3,6 +3,8 @@ import {BigDecimal} from '@subsquid/big-decimal'
 import {TypeormDatabase} from '@subsquid/typeorm-store'
 import {In} from 'typeorm'
 import {ENABLE_SNAPSHOT, INITIAL_BLOCK, INITIAL_WORKERS} from './constants'
+import {getAccount} from './helper/account'
+import {isSnapshotUpdateNeeded, takeSnapshot} from './helper/snapshot'
 import {
   Account,
   Cluster,
@@ -13,7 +15,6 @@ import {
   WorkerState,
 } from './model'
 import {type Ctx, type SubstrateBlock, processor} from './processor'
-import {isSnapshotUpdateNeeded, takeSnapshot} from './snapshot'
 import {
   phalaComputation,
   phalaPhatContracts,
@@ -100,6 +101,8 @@ processor.run(new TypeormDatabase(), async (ctx) => {
 
   for (let i = 0; i < events.length; i++) {
     const {name, args, block} = events[i]
+    assert(block.timestamp)
+    const blockTime = new Date(block.timestamp)
     switch (name) {
       case phalaPhatContracts.clusterCreated.name: {
         const {clusterId} = args
@@ -111,6 +114,7 @@ processor.run(new TypeormDatabase(), async (ctx) => {
           stake: BigDecimal(0),
           staker: 0,
           contract: 0,
+          createdTime: blockTime,
         })
         clusterMap.set(clusterId, cluster)
         meta.cluster++
@@ -118,6 +122,7 @@ processor.run(new TypeormDatabase(), async (ctx) => {
         assert(workerIds)
         for (const workerId of workerIds) {
           const worker = assertGet(workerMap, workerId)
+          assert(worker)
           worker.cluster = cluster
           cluster.worker++
           meta.worker++
@@ -141,6 +146,7 @@ processor.run(new TypeormDatabase(), async (ctx) => {
           cluster,
           stake: BigDecimal(0),
           staker: 0,
+          instantiatedTime: blockTime,
         })
         contractMap.set(contractId, contract)
         break
@@ -506,14 +512,4 @@ function getEvents(ctx: Ctx): Array<
     }
   }
   return events
-}
-
-function getAccount(m: Map<string, Account>, id: string): Account {
-  let acc = m.get(id)
-  if (acc == null) {
-    acc = new Account()
-    acc.id = id
-    m.set(id, acc)
-  }
-  return acc
 }

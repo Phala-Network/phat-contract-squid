@@ -1,8 +1,8 @@
 import {assertNotNull} from '@subsquid/substrate-processor'
 import {addDays, isAfter, isBefore} from 'date-fns'
-import {type Meta, MetaSnapshot} from './model'
-import type {Ctx, SubstrateBlock} from './processor'
-import {save} from './utils'
+import {type Meta, MetaSnapshot} from '../model'
+import type {Ctx, SubstrateBlock} from '../processor'
+import {save} from '../utils'
 
 export const createMetaSnapshot = (
   meta: Meta,
