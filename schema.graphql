@@ -64,6 +64,7 @@ type Contract @entity {
   stake: BigDecimal!
   staker: Int!
   instantiatedTime: DateTime!
+  codeHash: CodeHash
 }
 
 type ContractStake @entity {
@@ -71,4 +72,9 @@ type ContractStake @entity {
   contract: Contract!
   account: Account!
   amount: BigDecimal!
+}
+
+type CodeHash @entity {
+  id: ID!
+  name: String
 }

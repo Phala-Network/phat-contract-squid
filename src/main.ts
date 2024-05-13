@@ -4,6 +4,7 @@ import {TypeormDatabase} from '@subsquid/typeorm-store'
 import {In} from 'typeorm'
 import {ENABLE_SNAPSHOT, INITIAL_BLOCK, INITIAL_WORKERS} from './constants'
 import {getAccount} from './helper/account'
+import {updateCodeHash} from './helper/codeHash'
 import {isSnapshotUpdateNeeded, takeSnapshot} from './helper/snapshot'
 import {
   Account,
@@ -84,7 +85,7 @@ processor.run(new TypeormDatabase(), async (ctx) => {
   )
   const contracts = await ctx.store.find(Contract, {
     where: {id: In([...contractIdSet])},
-    relations: {cluster: true, deployer: true},
+    relations: {cluster: true, deployer: true, codeHash: true},
   })
   const contractMap = toMap(contracts)
   const clusters = await ctx.store.find(Cluster)
@@ -340,6 +341,15 @@ processor.run(new TypeormDatabase(), async (ctx) => {
 
       meta.height = block.height
       await save(ctx, [meta, clusterMap])
+    }
+
+    if (ctx.isHead && isLastEventInHandler) {
+      try {
+        await updateCodeHash(ctx)
+      } catch (e) {
+        console.error(e)
+        // don't break the processor
+      }
     }
 
     if (shouldTakeSnapshot) {
