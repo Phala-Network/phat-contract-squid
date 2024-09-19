@@ -1,4 +1,4 @@
-import {In, IsNull} from 'typeorm'
+import { IsNull} from 'typeorm'
 import {CodeHash, Contract} from '../model'
 import type {Ctx} from '../processor'
 import {save, toMap} from '../utils'
@@ -14,7 +14,7 @@ const codeHashName: {[hash in string]: string} = {}
 
 export const updateCodeHash = async (ctx: Ctx) => {
   const contractInfo = (await fetch(
-    'https://phat-cluster-ca.phala.network/pruntime/0x46f31a5d/prpc/PhactoryAPI.GetContractInfo',
+    'https://phat-cluster-de.phala.network/pruntime-01/PhactoryAPI.GetContractInfo',
   ).then((res) => res.json())) as {contracts: ContractInfo[]}
   const contractMap = await ctx.store
     .find(Contract, {
