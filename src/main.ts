@@ -236,14 +236,14 @@ processor.run(new TypeormDatabase(), async (ctx) => {
       case phalaComputation.workerStopped.name: {
         const {sessionId} = args
         const worker = assertGet(workerSessionMap, sessionId)
-        worker.state = WorkerState.WorkerCoolingDown
-        if (worker.cluster) {
+        if (worker.cluster && worker.state === WorkerState.WorkerIdle) {
           const cluster = assertGet(clusterMap, worker.cluster.id)
           cluster.idleWorker--
           cluster.pInit -= worker.pInit
           meta.idleWorker--
           meta.pInit -= worker.pInit
         }
+        worker.state = WorkerState.WorkerCoolingDown
         break
       }
       case phalaComputation.workerReclaimed.name: {
